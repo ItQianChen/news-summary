@@ -1,5 +1,5 @@
 collector:
-  top_limit: 10
+  top_limit: 5
   comment_limit: 20
   timeout_seconds: 10
   allow_fallback_on_error: true
@@ -7,7 +7,7 @@ collector:
   max_platform_workers: 3
   enabled_platforms:
 #    - weibo
-  - douyin
+  - bilibili
   platforms:
     toutiao:
       hot_url: "https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc"
@@ -53,4 +53,4 @@ ai:
 report:
   output_dir: data/reports
   write_json: true
-  focus_limit: 3
+  focus_limit: 1

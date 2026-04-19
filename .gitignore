@@ -12,6 +12,10 @@ env/
 ENV/
 .env
 
+*manual.md
+*manual.json
+
+
 # Build and packaging
 build/
 dist/
