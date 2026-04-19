@@ -1,157 +1,118 @@
-# News Summary MVP
+# News Summary (聚合新闻摘要生成器)
 
-一个用于聚合多平台新闻热榜、筛选代表评论并生成 Markdown 日报的 Python 基础架构。
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.33%2B-FF4B4B.svg)](https://streamlit.io/)
 
-## 目录结构
+News Summary 是一个用于聚合多平台新闻热榜、筛选代表评论并通过大语言模型（LLM）生成结构化 Markdown 日报的轻量级可拓展应用架构。
 
-```text
-NewsSummary/
-├─ .env.example
-├─ app.py
-├─ README.md
-├─ requirements.txt
-├─ config/
-│  ├─ settings.yaml
-│  └─ prompts/
-│     ├─ daily_digest.txt
-│     └─ event_summary.txt
-├─ data/
-│  ├─ processed/.gitkeep
-│  ├─ raw/.gitkeep
-│  └─ reports/.gitkeep
-└─ src/
-   ├─ main.py
-   ├─ scheduler.py
-   ├─ ai/
-   │  ├─ __init__.py
-   │  ├─ client.py
-   │  ├─ prompts.py
-   │  └─ summarizer.py
-   ├─ collectors/
-   │  ├─ __init__.py
-   │  ├─ base.py
-   │  ├─ douyin.py
-   │  ├─ weibo.py
-   │  ├─ x.py
-   │  └─ youtube.py
-   ├─ dedupe/
-   │  ├─ __init__.py
-   │  └─ event_cluster.py
-   ├─ models/
-   │  ├─ __init__.py
-   │  ├─ comment.py
-   │  ├─ event.py
-   │  └─ ranking.py
-   ├─ normalizers/
-   │  ├─ __init__.py
-   │  └─ event_normalizer.py
-   ├─ selectors/
-   │  ├─ __init__.py
-   │  └─ comment_selector.py
-   ├─ storage/
-   │  ├─ __init__.py
-   │  ├─ db.py
-   │  ├─ files.py
-   │  └─ repositories.py
-   └─ utils/
-      ├─ __init__.py
-      ├─ logger.py
-      ├─ retry.py
-      └─ text.py
-```
+## 🌟 核心特性 (Features)
 
-## 当前实现范围
+- **🖥️ 现代化 Web 界面**：基于 Streamlit 构建了傻瓜式可视化管控面板，支持配置修改、流水线一键触发、历史报告记录管理，内置全屏原生侧滑目录，提供最高级的沉浸式阅读体验。
+- **🌐 多平台网络爬虫**：内置针对抖音、微博、Bilibili、X (Twitter)、YouTube 等主流平台的热榜与搜索采集器（包含网络异常自动降级回退机制）。
+- **🧠 智能语义去重 (Dedupe)**：突破简单的关键字字面量匹配限制，引入高级语义聚类算法，自动将多平台的同一现象级热点事件进行合并。
+- **🤖 LLM 摘要引擎**：支持接入完整的 OpenAI 兼容 API 阵列，通过专业 Prompt 自动深度提炼热点背景、争议焦点与多方观点，生成高价值行业洞察。
+- **⚡ 高并发调度架构**：支持在平台采集层和事件分析层实施配置化多线程并发运作，极大地加速数据漏斗与日报生成速度。
 
-当前代码在“基础架构 + 最小可用抓取链路”的基础上，提供了完整的 Web 可视化页面支持：
+---
 
-- **提供了基于 Streamlit 的 Web 端可视化界面交互入口，实现了纯 UI 傻瓜式参数修改与运行，支持报告内容的直接可视化与目录跳转展现**
-- 定义了统一的数据模型
-- 定义了采集器抽象接口，并提供抖音 / 微博 / Bilibili / X / YouTube 的真实网络抓取方案
-- 实现了标准化、规则+相似度去重、评论筛选、摘要拼装的基础流程
-- 提供 SQLite 初始化与基础 Repository
-- 提供可配置的 OpenAI 兼容客户端
-- 提供手动运行入口和 APScheduler 定时入口
-- 提供配置文件、Prompt 模板和环境变量样例
+## 🚀 快速开始 (Quick Start)
 
-## 快速开始
+### 1. 环境准备
 
-1. 安装依赖
+确保您的本地环境已安装 Python 3.8+。拉取本仓库及安装后端运行组件与 UI 依赖：
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. 复制环境变量文件（提供基础默认配置）
+### 2. 初始化核心变量
+
+复制环境变量模版文件，并在生成的 `.env` 中填入你的大模型 API 凭证：
 
 ```bash
-copy .env.example .env
+cp .env.example .env  # 并在其中编辑以下必须字段
 ```
 
-3. 🚀 **启动可视化管控界面 (推荐)**
+**✅ 必填环境变量 (`.env`):**
+- `OPENAI_API_KEY`: 服务商提供的 API 校验密钥
+- `OPENAI_BASE_URL`: 模型代理或协议中转地址（例如: `https://api.openai.com/v1`）
+- `MODEL_NAME`: 接入的模型名称（例如: `gpt-4o`, `deepseek-chat` 等）
 
-启动后会在浏览器弹出一个 Web 页面，您可以在侧边栏修改 AI 配置与爬虫参数并自动保存！点击运行即可在页面自动浏览具备“目录与格式支持”的新闻日报：
+### 3. 启动应用
+
+对于一般使用者及开发者，强烈建议通过 Web UI 模式运作并管理本项目：
 
 ```bash
 streamlit run app.py
 ```
+*启动后浏览器将进入本机仪表板（`http://localhost:8501`）。您可以在左侧面板中实时调整所有技术参数，并点击运行，实现“一键爬取 > 一键生成 > 可视化流畅阅读”。*
 
-4. 或通过命令行不配置 AI 跑通基础抓取流程：
-
+#### 其他可用运行模式：
+**命令行纯净触发流（适用于部署测试）**:
 ```bash
 python -m src.main
 ```
-
-5. 启动本地调度器 (定时任务)
-
+**启动本机定时任务调度器**:
 ```bash
 python -m src.scheduler
 ```
 
-## 你需要配置的 AI 项
+---
 
-至少填写以下三个：
+## ⚙️ 系统配置说明 (Configuration)
 
-- `OPENAI_API_KEY`
-- `OPENAI_BASE_URL`
-- `MODEL_NAME`
+除了环境秘钥外的业务参数控制，可以在 Web UI 中配置，或修改位于 `config/settings.yaml` 下的原生设定：
 
-可选增强：
+### 📡 采集器设定 (Collector)
+* `enabled_platforms`: 启用的抓取节点平台阵列（默认推荐: weibo, douyin, bilibili）
+* `top_limit`: 限定每个采集支路最大所能收集的热榜条目量（默认: 30）
+* `concurrent_platforms`: 是否打开多站并发访问，加快拉取速度
+* `max_platform_workers`: 网络并发连接的工作线程资源总数
 
-- `EMBEDDING_MODEL`：用于更强的事件去重语义相似度
-- `OPENAI_TIMEOUT_SECONDS`
-- `OPENAI_MAX_RETRIES`
-- `OPENAI_TEMPERATURE`
+### 🤖 人工智能设定 (AI)
+* `concurrent_event_summaries`: 是否允许大语言模型对多篇合并后的热点启动并发概括
+* `max_summary_workers`: 向大模型发起高并发请求的限制阈值（请根据所使用厂商的请求 QPS 限流要求适当控制）
 
-## 配置说明
+---
 
-可在 [`config/settings.yaml`](config/settings.yaml) 中控制抓取平台、AI 并发与输出规模：
+## 📂 项目结构体系 (Architecture)
 
-- [`collector.enabled_platforms`](config/settings.yaml)：决定本次运行启用哪些平台，例如只配置 `weibo` 和 `douyin` 就只抓这两个平台。
-- [`collector.top_limit`](config/settings.yaml)：每个平台抓取的热榜条数，默认 `30`。
-- [`collector.concurrent_platforms`](config/settings.yaml)：是否并发抓取已启用平台，默认 `true`。
-- [`collector.max_platform_workers`](config/settings.yaml)：平台级最大并发数，默认 `3`。
-- [`ai.concurrent_event_summaries`](config/settings.yaml)：是否并发生成事件级 AI 摘要，默认 `true`。
-- [`ai.max_summary_workers`](config/settings.yaml)：事件级 AI 摘要最大并发数，默认 `3`。
-- [`report.focus_limit`](config/settings.yaml)：日报焦点条数，默认 `10`。
+```text
+NewsSummary/
+├── app.py                  # 🌟 Streamlit 视图应用与前端交互入口
+├── config/                 # 总体功能参控与 Prompt 中枢 (settings.yaml 等)
+├── data/                   # SQLite 载荷节点与持久化 Markdown 日志保存
+├── src/                    # 引擎源程序及流水线节点调度模块
+│   ├── main.py             # 无头控制台入口
+│   ├── scheduler.py        # 任务调度触发
+│   ├── ai/                 # LLM 通讯链路与并发拼装工厂
+│   ├── collectors/         # 网络爬取数据源 (douyin, weibo, bilibili 等策略)
+│   ├── dedupe/             # 广义事件提取与融合聚类计算
+│   ├── models/             # PyDantic 强制类型输入模型定义结构
+│   ├── normalizers/        # 内容文本清洗与正则剥壳归一化适配器
+│   ├── selectors/          # 过滤劣质评论与垃圾内容的清洗分类系统
+│   └── storage/            # 数据入库策略与报告落地写出管控器
+└── requirements.txt        # 环境依赖装载清单
+```
 
-当前默认启用平台为微博、抖音、Bilibili；如需恢复 X / YouTube，只需把对应平台名加入 [`collector.enabled_platforms`](config/settings.yaml)。
+---
 
-## 当前输出语义
+## 📑 运行时数据流转说明
 
-当前实现不是“所有平台抓完后再硬截断成 30 条输出”，而是：
+当发起数据生成动作时，应用的底层计算将经历以下五步周期性链路：
+1. **多路抓取**：按预设的最高采集阀值及线程数拉取全网平台热门信息。
+2. **重塑清洗**：使杂乱的特定平台内容向数据模型（Pydantic）抽象归拢对齐。
+3. **聚合去重**：通过文本关联及内插的词向量对跨越同一网络维度的相似独立话题进行自动归类合并汇编。
+4. **模型透析**：调控投喂速度，由 LLM 生成标准化背景、正反对立面提炼。
+5. **视图载出**：在文件流产出复合型 Markdown 文档日志，并最终渲染于应用前端 UI之上。
 
-- 每个平台先按 [`collector.top_limit`](config/settings.yaml) 抓取，例如两个平台就是 `30 + 30` 条源数据。
-- 已启用平台会在入口调度层并发执行；例如同时启用抖音和 Bilibili 时，两者会同时开始抓取。
-- 所有平台源条目先做并集汇总，再对相同事件进行聚类合并。
-- 聚类后的事件级 AI 摘要也可并发生成；默认会按 [`ai.max_summary_workers`](config/settings.yaml) 受控并发调用模型，但最终输出顺序仍保持与事件列表一致。
-- 合并后的单个事件会保留其命中的全部平台条目，例如“事件 1”下同时展示微博、抖音、Bilibili 命中项。
-- Markdown 与 JSON 都会输出完整事件并集，不再使用“最终事件数 30 条”的硬截断配置。
+---
 
-## 说明
+## 🤝 贡献参与 (Contributing)
 
-- 抖音采集：优先使用 Douyin Web 热榜与搜索接口，失败时回退到页面镜像与搜索摘要。
-- 微博采集：使用公开热搜接口 + 搜索结果帖子作为评论观点样本。
-- Bilibili 采集：优先使用热门视频公开接口，失败时回退到页面镜像与搜索结果摘要。
-- X 采集：使用 Trends24 获取趋势词，使用 Nitter RSS 获取讨论样本。
-- YouTube 采集：使用 Invidious 公共接口获取趋势视频和评论样本。
-- 如果第三方来源暂时不可访问，系统会自动降级为搜索摘要或占位数据，而不是直接崩溃。
+对于想要协助丰富更多媒体信息源抓取扩展，或具有更为强劲模型 Prompt 调度方案的朋友，欢迎您任何时候提交 Bug 反馈、开立 PR 并与社群一同完善此项目！
+
+## 📄 许可协议 (License)
+
+本项目基于 [MIT License](LICENSE) 协议开源。
