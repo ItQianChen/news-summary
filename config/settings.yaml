@@ -1,15 +1,15 @@
 collector:
   top_limit: 30
   comment_limit: 20
-  timeout_seconds: 6
+  timeout_seconds: 10
   allow_fallback_on_error: true
   concurrent_platforms: true
   max_platform_workers: 3
   enabled_platforms:
 #    - weibo
-    - douyin
+    # - douyin
     # - bilibili
-    # - toutiao
+    - toutiao
   platforms:
     toutiao:
       hot_url: "https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc"

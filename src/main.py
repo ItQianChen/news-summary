@@ -195,6 +195,9 @@ def run_pipeline(report_label: str = "manual") -> Path:
             label=report_label,
         )
 
+    database.clear()
+    LOGGER.info("database cleared after generating report")
+
     LOGGER.info("report generated: %s", markdown_path)
     return markdown_path
 

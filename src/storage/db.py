@@ -59,3 +59,11 @@ class Database:
         with self.connect() as connection:
             connection.executescript(SCHEMA)
             connection.commit()
+
+    def clear(self) -> None:
+        with self.connect() as connection:
+            connection.execute("DELETE FROM platform_rankings")
+            connection.execute("DELETE FROM comments")
+            connection.execute("DELETE FROM events")
+            connection.execute("DELETE FROM event_items")
+            connection.commit()
