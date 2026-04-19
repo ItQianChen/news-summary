@@ -1,5 +1,5 @@
 collector:
-  top_limit: 30
+  top_limit: 10
   comment_limit: 20
   timeout_seconds: 10
   allow_fallback_on_error: true
@@ -7,9 +7,7 @@ collector:
   max_platform_workers: 3
   enabled_platforms:
 #    - weibo
-    # - douyin
-    # - bilibili
-    - toutiao
+  - douyin
   platforms:
     toutiao:
       hot_url: "https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc"
@@ -19,7 +17,8 @@ collector:
       referer: https://weibo.com/hot/search
     douyin:
       hot_web_url: https://www.douyin.com/aweme/v1/web/hot/search/list/
-      hot_fallback_url: https://www.iesdouyin.com/web/api/v2/hotsearch/billboard/
+      hot_fallback_url: 
+        https://www.iesdouyin.com/web/api/v2/hotsearch/billboard/
       search_api: https://www.douyin.com/aweme/v1/web/general/search/single/
       referer: https://www.douyin.com/hot
       aid: 6383
@@ -44,8 +43,8 @@ dedupe:
 scheduler:
   hourly_cron: "0 * * * *"
   report_crons:
-    - "0 8 * * *"
-    - "0 20 * * *"
+  - "0 8 * * *"
+  - "0 20 * * *"
 
 ai:
   concurrent_event_summaries: true
@@ -54,4 +53,4 @@ ai:
 report:
   output_dir: data/reports
   write_json: true
-  focus_limit: 10
+  focus_limit: 3

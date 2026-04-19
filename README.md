@@ -7,6 +7,7 @@
 ```text
 NewsSummary/
 ├─ .env.example
+├─ app.py
 ├─ README.md
 ├─ requirements.txt
 ├─ config/
@@ -61,8 +62,9 @@ NewsSummary/
 
 ## 当前实现范围
 
-当前代码实现的是“基础架构 + 最小可用抓取链路”，不是完整商业级产品：
+当前代码在“基础架构 + 最小可用抓取链路”的基础上，提供了完整的 Web 可视化页面支持：
 
+- **提供了基于 Streamlit 的 Web 端可视化界面交互入口，实现了纯 UI 傻瓜式参数修改与运行，支持报告内容的直接可视化与目录跳转展现**
 - 定义了统一的数据模型
 - 定义了采集器抽象接口，并提供抖音 / 微博 / Bilibili / X / YouTube 的真实网络抓取方案
 - 实现了标准化、规则+相似度去重、评论筛选、摘要拼装的基础流程
@@ -79,25 +81,27 @@ NewsSummary/
 pip install -r requirements.txt
 ```
 
-2. 复制环境变量文件并按需修改
+2. 复制环境变量文件（提供基础默认配置）
 
 ```bash
 copy .env.example .env
 ```
 
-3. 不配置 AI 也可以直接跑通基础流程
+3. 🚀 **启动可视化管控界面 (推荐)**
+
+启动后会在浏览器弹出一个 Web 页面，您可以在侧边栏修改 AI 配置与爬虫参数并自动保存！点击运行即可在页面自动浏览具备“目录与格式支持”的新闻日报：
+
+```bash
+streamlit run app.py
+```
+
+4. 或通过命令行不配置 AI 跑通基础抓取流程：
 
 ```bash
 python -m src.main
 ```
 
-4. 配置 AI 后再次执行，可得到模型生成的事件总结和日报
-
-```bash
-python -m src.main
-```
-
-5. 启动本地调度器
+5. 启动本地调度器 (定时任务)
 
 ```bash
 python -m src.scheduler
