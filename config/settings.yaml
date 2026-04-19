@@ -8,8 +8,11 @@ collector:
   enabled_platforms:
 #    - weibo
     - douyin
-    - bilibili
+    # - bilibili
+    # - toutiao
   platforms:
+    toutiao:
+      hot_url: "https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc"
     weibo:
       hot_url: https://weibo.com/ajax/side/hotSearch
       search_api: https://m.weibo.cn/api/container/getIndex

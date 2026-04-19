@@ -9,7 +9,7 @@ import yaml
 from dotenv import load_dotenv
 
 from src.ai import AIClient, PromptRepository, Summarizer
-from src.collectors import BilibiliCollector, DouyinCollector, WeiboCollector, XCollector, YouTubeCollector
+from src.collectors import BilibiliCollector, DouyinCollector, ToutiaoCollector, WeiboCollector, XCollector, YouTubeCollector
 from src.dedupe import EventCluster
 from src.models import Event
 from src.normalizers import EventNormalizer
@@ -39,6 +39,7 @@ def build_collectors(settings: dict) -> list:
     registry = {
         "bilibili": BilibiliCollector({**collector_settings, **platform_settings.get("bilibili", {})}),
         "douyin": DouyinCollector({**collector_settings, **platform_settings.get("douyin", {})}),
+        "toutiao": ToutiaoCollector({**collector_settings, **platform_settings.get("toutiao", {})}),
         "weibo": WeiboCollector({**collector_settings, **platform_settings.get("weibo", {})}),
         "x": XCollector({**collector_settings, **platform_settings.get("x", {})}),
         "youtube": YouTubeCollector({**collector_settings, **platform_settings.get("youtube", {})}),

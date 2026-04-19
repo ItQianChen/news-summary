@@ -4,6 +4,7 @@ from src.collectors.douyin import DouyinCollector
 from src.collectors.weibo import WeiboCollector
 from src.collectors.x import XCollector
 from src.collectors.youtube import YouTubeCollector
+from src.collectors.toutiao import ToutiaoCollector
 
 __all__ = [
     "BaseCollector",
@@ -12,4 +13,5 @@ __all__ = [
     "WeiboCollector",
     "XCollector",
     "YouTubeCollector",
+    "ToutiaoCollector",
 ]

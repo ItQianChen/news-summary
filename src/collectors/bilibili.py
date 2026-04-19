@@ -25,6 +25,10 @@ class BilibiliCollector(BaseCollector):
         return self._fallback_rankings(limit) if self.allow_fallback_on_error else []
 
     def fetch_comments(self, item: RankingItem, limit: int = 30) -> list[CommentItem]:
+        comments = self._fetch_comments_from_reply_api(item, limit)
+        if comments:
+            return comments
+
         comments = self._fetch_comments_from_search_html(item, limit)
         if comments:
             return comments
@@ -61,9 +65,7 @@ class BilibiliCollector(BaseCollector):
                     continue
                 seen.add(title)
                 bvid = str(row.get("bvid") or "").strip()
-                target_url = row.get("short_link_v2") or row.get("short_link") or ""
-                if not target_url and bvid:
-                    target_url = f"https://www.bilibili.com/video/{bvid}"
+                target_url = f"https://www.bilibili.com/video/{bvid}" if bvid else (row.get("short_link_v2") or row.get("short_link") or "")
                 rankings.append(
                     RankingItem(
                         platform=self.platform,
@@ -104,6 +106,46 @@ class BilibiliCollector(BaseCollector):
             return rankings
         except Exception as exc:
             self.logger.info("bilibili popular fetch failed via jina mirror: %s", exc)
+            return []
+
+    def _fetch_comments_from_reply_api(self, item: RankingItem, limit: int) -> list[CommentItem]:
+        bvid_match = re.search(r"bilibili\.com/video/(BV[a-zA-Z0-9]+)", str(item.url))
+        if not bvid_match:
+            return []
+        bvid = bvid_match.group(1)
+        
+        try:
+            view_url = f"https://api.bilibili.com/x/web-interface/view?bvid={bvid}"
+            view_data = self._request_json(view_url)
+            aid = (view_data.get("data") or {}).get("aid")
+            if not aid:
+                return []
+                
+            reply_url = f"https://api.bilibili.com/x/v2/reply?type=1&oid={aid}&sort=2"
+            reply_data = self._request_json(reply_url)
+            replies = (reply_data.get("data") or {}).get("replies") or []
+            
+            comments: list[CommentItem] = []
+            for reply in replies[:limit]:
+                content = self._clean_text((reply.get("content") or {}).get("message") or "")
+                if not content:
+                    continue
+                author = self._clean_text((reply.get("member") or {}).get("uname") or "bilibili_user")
+                
+                comments.append(
+                    CommentItem(
+                        platform=self.platform,
+                        ranking_id=None,
+                        comment_id_on_platform=str(reply.get("rpid") or f"bilibili-{len(comments)}"),
+                        content=content,
+                        author_name=author,
+                        like_count=int(reply.get("like", 0)),
+                        reply_count=int(reply.get("rcount", 0)),
+                    )
+                )
+            return comments
+        except Exception as exc:
+            self.logger.info("bilibili reply api fetch failed for %s: %s", item.title, exc)
             return []
 
     def _fetch_comments_from_search_html(self, item: RankingItem, limit: int) -> list[CommentItem]:
