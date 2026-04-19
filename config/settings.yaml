@@ -1,0 +1,54 @@
+collector:
+  top_limit: 30
+  comment_limit: 20
+  timeout_seconds: 6
+  allow_fallback_on_error: true
+  concurrent_platforms: true
+  max_platform_workers: 3
+  enabled_platforms:
+#    - weibo
+    - douyin
+    - bilibili
+  platforms:
+    weibo:
+      hot_url: https://weibo.com/ajax/side/hotSearch
+      search_api: https://m.weibo.cn/api/container/getIndex
+      referer: https://weibo.com/hot/search
+    douyin:
+      hot_web_url: https://www.douyin.com/aweme/v1/web/hot/search/list/
+      hot_fallback_url: https://www.iesdouyin.com/web/api/v2/hotsearch/billboard/
+      search_api: https://www.douyin.com/aweme/v1/web/general/search/single/
+      referer: https://www.douyin.com/hot
+      aid: 6383
+      channel: channel_pc_web
+    bilibili:
+      popular_url: https://api.bilibili.com/x/web-interface/popular
+      page_size: 20
+    x:
+      trends_url: https://trends24.in/united-states/
+      nitter_base_url: https://nitter.net
+    youtube:
+      invidious_base_url: https://yewtu.be
+
+selector:
+  per_event_comment_limit: 10
+  min_text_length: 8
+
+dedupe:
+  strong_similarity_threshold: 0.82
+  weak_similarity_threshold: 0.68
+
+scheduler:
+  hourly_cron: "0 * * * *"
+  report_crons:
+    - "0 8 * * *"
+    - "0 20 * * *"
+
+ai:
+  concurrent_event_summaries: true
+  max_summary_workers: 10
+
+report:
+  output_dir: data/reports
+  write_json: true
+  focus_limit: 10

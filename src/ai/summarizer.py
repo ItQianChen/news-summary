@@ -1,0 +1,140 @@
+from __future__ import annotations
+
+import json
+from dataclasses import asdict
+
+from src.ai.client import AIClient
+from src.ai.prompts import PromptRepository
+from src.models import Event, EventPlatformItem, EventReport, EventSummary
+from src.utils import unique_preserve_order
+
+
+class Summarizer:
+    def __init__(self, client: AIClient, prompts: PromptRepository) -> None:
+        self.client = client
+        self.prompts = prompts
+
+    def summarize_event_report(self, event: Event) -> EventReport:
+        try:
+            summary = self.summarize_event(event)
+        except Exception:
+            summary = self._fallback_event_summary(event)
+        return self.build_event_report(event, summary)
+
+    def summarize_event(self, event: Event) -> EventSummary:
+        system_prompt = self.prompts.load("event_summary.txt")
+        viewpoint_limit = 10
+        payload = {
+            "title": event.canonical_title,
+            "platform_items": [
+                {
+                    "platform": item.platform,
+                    "rank_index": item.rank_index,
+                    "title": item.title,
+                    "url": item.url,
+                    "heat_score": item.heat_score_raw,
+                }
+                for item in event.items
+            ],
+            "comments": [
+                {
+                    "platform": comment.platform,
+                    "author_name": comment.author_name,
+                    "content": comment.content,
+                    "like_count": comment.like_count,
+                    "reply_count": comment.reply_count,
+                }
+                for comment in event.comments[:viewpoint_limit]
+            ],
+        }
+        ai_result = self.client.complete_json(system_prompt, json.dumps(payload, ensure_ascii=False, indent=2))
+        if ai_result:
+            return EventSummary(
+                title=event.canonical_title,
+                one_line_summary=str(ai_result.get("one_line_summary") or f"{event.canonical_title} 引发多平台讨论。"),
+                background=str(ai_result.get("background") or "输入信息不足，暂无更多可靠背景。"),
+                controversy=str(ai_result.get("controversy") or "暂无足够信息判断主要争议焦点。"),
+                viewpoints=self._coerce_list(
+                    ai_result.get("viewpoints"),
+                    fallback=[comment.content for comment in event.comments[:10]],
+                ),
+                tags=self._coerce_list(ai_result.get("tags"), fallback=[item.platform for item in event.items]),
+                watchpoints=self._coerce_list(ai_result.get("watchpoints"), fallback=["继续跟踪事件演化"]),
+            )
+        return self._fallback_event_summary(event)
+
+    def build_event_report(self, event: Event, summary: EventSummary) -> EventReport:
+        platform_items = [
+            EventPlatformItem(
+                platform=item.platform,
+                rank_index=item.rank_index,
+                title=item.title,
+                url=item.url,
+                heat_score=item.heat_score_raw,
+            )
+            for item in sorted(event.items, key=lambda item: (item.platform, item.rank_index, item.title))
+        ]
+        return EventReport(summary=summary, platform_items=platform_items)
+
+    def summarize_daily(self, reports: list[EventReport], focus_limit: int = 10) -> str:
+        return self._fallback_daily_summary(reports, focus_limit=focus_limit)
+
+    def _fallback_event_summary(self, event: Event) -> EventSummary:
+        viewpoints = [comment.content for comment in event.comments[:10]] or ["暂无足够评论样本"]
+        tags = unique_preserve_order([item.platform for item in event.items])
+        return EventSummary(
+            title=event.canonical_title,
+            one_line_summary=f"{event.canonical_title} 在多个平台进入热点讨论。",
+            background=f"聚合自 {', '.join(tags)} 平台热榜，当前为规则摘要。",
+            controversy="当前为基础规则总结，争议焦点基于代表性评论提取。",
+            viewpoints=viewpoints,
+            tags=tags,
+            watchpoints=["补充更多原始评论", "对比后续热度变化"],
+        )
+
+    def _fallback_daily_summary(self, reports: list[EventReport], *, focus_limit: int) -> str:
+        if not reports:
+            return "# 今日热点摘要\n\n暂无事件。\n"
+
+        normalized_focus_limit = max(focus_limit, 0)
+        focus_reports = reports[:normalized_focus_limit] if normalized_focus_limit else []
+        sections: list[str] = ["# 今日热点摘要\n"]
+        if focus_reports:
+            sections.append(f"## 今日{len(focus_reports)}大焦点")
+            for index, report in enumerate(focus_reports, start=1):
+                sections.append(f"- 焦点 {index}：{report.summary.one_line_summary}")
+        else:
+            sections.append("## 今日焦点")
+            sections.append("- 未配置焦点数量，跳过焦点导读。")
+        sections.append("")
+
+        for index, report in enumerate(reports, start=1):
+            summary = report.summary
+            platforms = unique_preserve_order([item.platform for item in report.platform_items])
+            sections.append(f"## {index}. {summary.title}")
+            sections.append(f"- 一句话摘要：{summary.one_line_summary}")
+            sections.append(f"- 命中平台：{' / '.join(platforms) if platforms else '暂无'}")
+            sections.append(f"- 平台条目数：{len(report.platform_items)}")
+            sections.append(f"- 背景：{summary.background}")
+            sections.append(f"- 争议焦点：{summary.controversy}")
+            sections.append(f"- 主要观点：{'；'.join(summary.viewpoints)}")
+            sections.append(f"- 标签：{' / '.join(summary.tags)}")
+            sections.append(f"- 观察点：{'；'.join(summary.watchpoints)}")
+            if report.platform_items:
+                sections.append("- 平台命中明细：")
+                for item in report.platform_items:
+                    heat_score = f"｜热度：{item.heat_score}" if item.heat_score else ""
+                    url = f"｜链接：{item.url}" if item.url else ""
+                    sections.append(f"  - {item.platform} #{item.rank_index}：{item.title}{heat_score}{url}")
+            else:
+                sections.append("- 平台命中明细：暂无")
+            sections.append("")
+        return "\n".join(sections)
+
+    @staticmethod
+    def _coerce_list(value: object, *, fallback: list[str]) -> list[str]:
+        if isinstance(value, list):
+            result = [str(item).strip() for item in value if str(item).strip()]
+            if result:
+                return result
+        return [item for item in fallback if item]
