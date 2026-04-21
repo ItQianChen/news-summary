@@ -7,7 +7,7 @@ from dataclasses import asdict
 from src.ai.client import AIClient
 from src.ai.prompts import PromptRepository
 from src.models import Event, EventPlatformItem, EventReport, EventSummary
-from src.utils import unique_preserve_order
+from src.utils import format_markdown_link, unique_preserve_order
 
 
 class Summarizer:
@@ -197,7 +197,7 @@ class Summarizer:
                 sections.append(f"- 渠道：{item.platform}")
                 sections.append(f"- 排名：#{item.rank_index}")
                 sections.append(f"- 热度：{item.heat_score or '暂无'}")
-                sections.append(f"- 链接：{item.url or '暂无'}")
+                sections.append(f"- 链接：{format_markdown_link(item.url, item.title)}")
                 sections.append(f"- 背景：{summary.background}")
                 sections.append(f"- 争议焦点：{summary.controversy}")
                 sections.append(f"- 主要观点：{'；'.join(summary.viewpoints)}")

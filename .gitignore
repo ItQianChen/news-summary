@@ -13,6 +13,7 @@ ENV/
 .env
 
 *manual.md
+*manual-rule.md
 *manual-ai.md
 *manual.json
 

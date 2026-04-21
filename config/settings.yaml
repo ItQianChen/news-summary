@@ -4,10 +4,10 @@ collector:
   timeout_seconds: 10
   allow_fallback_on_error: true
   concurrent_platforms: true
-  max_platform_workers: 3
+  max_platform_workers: 10
   enabled_platforms:
 #    - weibo
-  - bilibili
+  - toutiao
   platforms:
     toutiao:
       hot_url: "https://www.toutiao.com/hot-event/hot-board/?origin=toutiao_pc"
@@ -48,9 +48,10 @@ scheduler:
 
 ai:
   concurrent_event_summaries: true
-  max_summary_workers: 10
+  max_summary_workers: 50
 
 report:
   output_dir: data/reports
   write_json: true
-  focus_limit: 1
+  focus_limit: 3
+  render_mode: all
