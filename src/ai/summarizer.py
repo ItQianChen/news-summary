@@ -77,8 +77,22 @@ class Summarizer:
         ]
         return EventReport(summary=summary, platform_items=platform_items)
 
-    def summarize_daily(self, reports: list[EventReport], focus_limit: int = 10) -> str:
+    def summarize_daily(self, reports: list[EventReport], focus_limit: int = 10, mode: str = "rule") -> str:
+        normalized_mode = (mode or "rule").strip().lower()
+        if normalized_mode == "ai":
+            return self._ai_daily_summary(reports, focus_limit=focus_limit)
         return self._fallback_daily_summary(reports, focus_limit=focus_limit)
+
+    def summarize_daily_variants(self, reports: list[EventReport], focus_limit: int = 10, mode: str = "rule") -> dict[str, str]:
+        normalized_mode = (mode or "rule").strip().lower()
+        if normalized_mode == "all":
+            return {
+                "rule": self._fallback_daily_summary(reports, focus_limit=focus_limit),
+                "ai": self._ai_daily_summary(reports, focus_limit=focus_limit),
+            }
+        if normalized_mode == "ai":
+            return {"ai": self._ai_daily_summary(reports, focus_limit=focus_limit)}
+        return {"rule": self._fallback_daily_summary(reports, focus_limit=focus_limit)}
 
     def _fallback_event_summary(self, event: Event) -> EventSummary:
         viewpoints = [comment.content for comment in event.comments[:10]] or ["暂无足够评论样本"]
@@ -93,20 +107,67 @@ class Summarizer:
             watchpoints=["补充更多原始评论", "对比后续热度变化"],
         )
 
+    def _ai_daily_summary(self, reports: list[EventReport], *, focus_limit: int) -> str:
+        fallback_markdown = self._fallback_daily_summary(reports, focus_limit=focus_limit)
+        if not reports:
+            return fallback_markdown
+
+        system_prompt = self.prompts.load("daily_digest.txt")
+        payload = {
+            "focus_limit": max(focus_limit, 0),
+            "platforms": self._build_daily_payload(reports, focus_limit=focus_limit),
+        }
+        markdown = self.client.complete(system_prompt, json.dumps(payload, ensure_ascii=False, indent=2))
+        if markdown.strip():
+            return markdown.strip()
+        return fallback_markdown
+
+    def _build_daily_payload(self, reports: list[EventReport], *, focus_limit: int) -> list[dict[str, object]]:
+        platform_groups = self._build_platform_groups(reports)
+        payload: list[dict[str, object]] = []
+        normalized_focus_limit = max(focus_limit, 0)
+
+        for platform, entries in platform_groups.items():
+            sorted_entries = self._sort_platform_entries(entries)
+            focus_entries = sorted_entries[:normalized_focus_limit] if normalized_focus_limit else []
+            payload.append(
+                {
+                    "platform": platform,
+                    "focus_limit": normalized_focus_limit,
+                    "focus_count": len(focus_entries),
+                    "focuses": [
+                        {
+                            "title": entry["summary"].title,
+                            "one_line_summary": entry["summary"].one_line_summary,
+                            "rank_index": entry["platform_item"].rank_index,
+                            "heat_score": entry["platform_item"].heat_score,
+                        }
+                        for entry in focus_entries
+                    ],
+                    "items": [
+                        {
+                            "title": entry["summary"].title,
+                            "one_line_summary": entry["summary"].one_line_summary,
+                            "background": entry["summary"].background,
+                            "controversy": entry["summary"].controversy,
+                            "viewpoints": entry["summary"].viewpoints,
+                            "tags": entry["summary"].tags,
+                            "watchpoints": entry["summary"].watchpoints,
+                            "rank_index": entry["platform_item"].rank_index,
+                            "heat_score": entry["platform_item"].heat_score,
+                            "url": entry["platform_item"].url,
+                        }
+                        for entry in sorted_entries
+                    ],
+                }
+            )
+        return payload
+
     def _fallback_daily_summary(self, reports: list[EventReport], *, focus_limit: int) -> str:
         if not reports:
             return "# 今日热点摘要\n\n暂无事件。\n"
 
-        platform_groups: OrderedDict[str, list[dict[str, object]]] = OrderedDict()
-        for report in reports:
-            for item in report.platform_items:
-                platform_groups.setdefault(item.platform, []).append(
-                    {
-                        "summary": report.summary,
-                        "platform_item": item,
-                    }
-                )
-
+        platform_groups = self._build_platform_groups(reports)
         if not platform_groups:
             return "# 今日热点摘要\n\n暂无事件。\n"
 
@@ -114,13 +175,7 @@ class Summarizer:
         sections: list[str] = ["# 今日热点摘要", ""]
 
         for platform, entries in platform_groups.items():
-            sorted_entries = sorted(
-                entries,
-                key=lambda entry: (
-                    int(entry["platform_item"].rank_index),
-                    str(entry["summary"].title),
-                ),
-            )
+            sorted_entries = self._sort_platform_entries(entries)
             focus_entries = sorted_entries[:normalized_focus_limit] if normalized_focus_limit else []
 
             sections.append(f"## 渠道：{platform}")
@@ -151,6 +206,29 @@ class Summarizer:
                 sections.append("")
 
         return "\n".join(sections)
+
+    @staticmethod
+    def _build_platform_groups(reports: list[EventReport]) -> OrderedDict[str, list[dict[str, object]]]:
+        platform_groups: OrderedDict[str, list[dict[str, object]]] = OrderedDict()
+        for report in reports:
+            for item in report.platform_items:
+                platform_groups.setdefault(item.platform, []).append(
+                    {
+                        "summary": report.summary,
+                        "platform_item": item,
+                    }
+                )
+        return platform_groups
+
+    @staticmethod
+    def _sort_platform_entries(entries: list[dict[str, object]]) -> list[dict[str, object]]:
+        return sorted(
+            entries,
+            key=lambda entry: (
+                int(entry["platform_item"].rank_index),
+                str(entry["summary"].title),
+            ),
+        )
 
     @staticmethod
     def _coerce_list(value: object, *, fallback: list[str]) -> list[str]:

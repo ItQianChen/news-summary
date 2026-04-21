@@ -131,7 +131,7 @@ async def _summarize_all_events(events: list[Event], summarizer: Summarizer, set
     return await asyncio.gather(*(run_for_event(event) for event in events))
 
 
-def run_pipeline(report_label: str = "manual") -> Path:
+def run_pipeline(report_label: str = "manual") -> list[Path]:
     load_dotenv()
     configure_logging()
     settings = load_settings()
@@ -180,8 +180,18 @@ def run_pipeline(report_label: str = "manual") -> Path:
 
     event_reports = asyncio.run(_summarize_all_events(events, summarizer, settings))
 
-    markdown = summarizer.summarize_daily(event_reports, focus_limit=settings["report"].get("focus_limit", 10))
-    markdown_path = report_manager.write_markdown(markdown, label=report_label)
+    focus_limit = settings["report"].get("focus_limit", 10)
+    render_mode = str(settings["report"].get("render_mode", "rule")).strip().lower()
+    markdown_variants = summarizer.summarize_daily_variants(event_reports, focus_limit=focus_limit, mode=render_mode)
+
+    markdown_paths: list[Path] = []
+    if render_mode == "all":
+        for variant_name, markdown in markdown_variants.items():
+            markdown_paths.append(report_manager.write_markdown(markdown, label=f"{report_label}-{variant_name}"))
+    else:
+        variant_name, markdown = next(iter(markdown_variants.items()))
+        label = report_label if variant_name == "rule" else f"{report_label}-{variant_name}"
+        markdown_paths.append(report_manager.write_markdown(markdown, label=label))
 
     if settings["report"]["write_json"]:
         report_manager.write_json(
@@ -189,7 +199,8 @@ def run_pipeline(report_label: str = "manual") -> Path:
                 "events": [asdict(report) for report in event_reports],
                 "event_count": len(event_reports),
                 "source_item_count": len(all_rankings),
-                "markdown_path": str(markdown_path),
+                "markdown_paths": [str(path) for path in markdown_paths],
+                "render_mode": render_mode,
                 "ai_configured": ai_client.is_configured(),
             },
             label=report_label,
@@ -198,10 +209,12 @@ def run_pipeline(report_label: str = "manual") -> Path:
     database.clear()
     LOGGER.info("database cleared after generating report")
 
-    LOGGER.info("report generated: %s", markdown_path)
-    return markdown_path
+    for path in markdown_paths:
+        LOGGER.info("report generated: %s", path)
+    return markdown_paths
 
 
 if __name__ == "__main__":
-    output = run_pipeline()
-    print(output)
+    output_paths = run_pipeline()
+    for output_path in output_paths:
+        print(output_path)
