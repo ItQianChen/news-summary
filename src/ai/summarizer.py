@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import OrderedDict
 from dataclasses import asdict
 
 from src.ai.client import AIClient
@@ -96,39 +97,59 @@ class Summarizer:
         if not reports:
             return "# 今日热点摘要\n\n暂无事件。\n"
 
-        normalized_focus_limit = max(focus_limit, 0)
-        focus_reports = reports[:normalized_focus_limit] if normalized_focus_limit else []
-        sections: list[str] = ["# 今日热点摘要\n"]
-        if focus_reports:
-            sections.append(f"## 今日{len(focus_reports)}大焦点")
-            for index, report in enumerate(focus_reports, start=1):
-                sections.append(f"- 焦点 {index}：{report.summary.one_line_summary}")
-        else:
-            sections.append("## 今日焦点")
-            sections.append("- 未配置焦点数量，跳过焦点导读。")
-        sections.append("")
+        platform_groups: OrderedDict[str, list[dict[str, object]]] = OrderedDict()
+        for report in reports:
+            for item in report.platform_items:
+                platform_groups.setdefault(item.platform, []).append(
+                    {
+                        "summary": report.summary,
+                        "platform_item": item,
+                    }
+                )
 
-        for index, report in enumerate(reports, start=1):
-            summary = report.summary
-            platforms = unique_preserve_order([item.platform for item in report.platform_items])
-            sections.append(f"## {index}. {summary.title}")
-            sections.append(f"- 一句话摘要：{summary.one_line_summary}")
-            sections.append(f"- 命中平台：{' / '.join(platforms) if platforms else '暂无'}")
-            sections.append(f"- 平台条目数：{len(report.platform_items)}")
-            sections.append(f"- 背景：{summary.background}")
-            sections.append(f"- 争议焦点：{summary.controversy}")
-            sections.append(f"- 主要观点：{'；'.join(summary.viewpoints)}")
-            sections.append(f"- 标签：{' / '.join(summary.tags)}")
-            sections.append(f"- 观察点：{'；'.join(summary.watchpoints)}")
-            if report.platform_items:
-                sections.append("- 平台命中明细：")
-                for item in report.platform_items:
-                    heat_score = f"｜热度：{item.heat_score}" if item.heat_score else ""
-                    url = f"｜链接：{item.url}" if item.url else ""
-                    sections.append(f"  - {item.platform} #{item.rank_index}：{item.title}{heat_score}{url}")
+        if not platform_groups:
+            return "# 今日热点摘要\n\n暂无事件。\n"
+
+        normalized_focus_limit = max(focus_limit, 0)
+        sections: list[str] = ["# 今日热点摘要", ""]
+
+        for platform, entries in platform_groups.items():
+            sorted_entries = sorted(
+                entries,
+                key=lambda entry: (
+                    int(entry["platform_item"].rank_index),
+                    str(entry["summary"].title),
+                ),
+            )
+            focus_entries = sorted_entries[:normalized_focus_limit] if normalized_focus_limit else []
+
+            sections.append(f"## 渠道：{platform}")
+            if focus_entries:
+                sections.append(f"### 今日{len(focus_entries)}大焦点")
+                for index, entry in enumerate(focus_entries, start=1):
+                    summary = entry["summary"]
+                    sections.append(f"- 焦点 {index}：{summary.one_line_summary}")
             else:
-                sections.append("- 平台命中明细：暂无")
+                sections.append("### 今日焦点")
+                sections.append("- 未配置焦点数量，跳过焦点导读。")
             sections.append("")
+
+            for index, entry in enumerate(sorted_entries, start=1):
+                summary = entry["summary"]
+                item = entry["platform_item"]
+                sections.append(f"### {index}. {summary.title}")
+                sections.append(f"- 一句话摘要：{summary.one_line_summary}")
+                sections.append(f"- 渠道：{item.platform}")
+                sections.append(f"- 排名：#{item.rank_index}")
+                sections.append(f"- 热度：{item.heat_score or '暂无'}")
+                sections.append(f"- 链接：{item.url or '暂无'}")
+                sections.append(f"- 背景：{summary.background}")
+                sections.append(f"- 争议焦点：{summary.controversy}")
+                sections.append(f"- 主要观点：{'；'.join(summary.viewpoints)}")
+                sections.append(f"- 标签：{' / '.join(summary.tags)}")
+                sections.append(f"- 观察点：{'；'.join(summary.watchpoints)}")
+                sections.append("")
+
         return "\n".join(sections)
 
     @staticmethod

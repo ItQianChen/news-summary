@@ -48,6 +48,7 @@ with st.sidebar:
         openai_api_key = st.text_input("OPENAI_API_KEY", value=env_vars.get("OPENAI_API_KEY", ""), type="password")
         openai_base_url = st.text_input("OPENAI_BASE_URL", value=env_vars.get("OPENAI_BASE_URL", ""))
         model_name = st.text_input("MODEL_NAME", value=env_vars.get("MODEL_NAME", "gpt-4o-mini"))
+        embedding_model = st.text_input("EMBEDDING_MODEL", value=env_vars.get("EMBEDDING_MODEL", ""), help="可选。用于热点标题向量化聚类；不填写时，事件聚类退回规则模式。")
     
     with st.expander("🕵️ 抓取平台配置", expanded=True):
         platforms = list(collector_cfg.get("platforms", {}).keys())
@@ -91,6 +92,10 @@ if run_btn:
         dotenv.set_key(env_path, "OPENAI_BASE_URL", openai_base_url)
     if model_name:
         dotenv.set_key(env_path, "MODEL_NAME", model_name)
+    if embedding_model:
+        dotenv.set_key(env_path, "EMBEDDING_MODEL", embedding_model)
+    else:
+        dotenv.set_key(env_path, "EMBEDDING_MODEL", "")
     
     # Save Settings
     # We must properly initialize dicts if they don't exist
